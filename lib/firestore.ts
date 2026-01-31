@@ -125,14 +125,26 @@ export async function deleteProduct(id: string) {
 // Transaction: Deduct Stock
 export async function deductStock(items: { productId: string; quantity: number }[]) {
     for (const item of items) {
-        const { data: product } = await supabase.from('products').select('stock').eq('id', item.productId).single();
+        const { data: product } = await supabase
+            .from('products')
+            .select('stock, pre_order_days')
+            .eq('id', item.productId)
+            .single();
 
-        if (product && product.stock >= item.quantity) {
-            const { error } = await supabase.rpc('decrement_stock', { p_id: item.productId, q: item.quantity });
+        if (product) {
+            // Allow if stock is sufficient OR if pre-order is enabled
+            if (product.stock >= item.quantity || (product.pre_order_days || 0) > 0) {
+                const { error } = await supabase.rpc('decrement_stock', { p_id: item.productId, q: item.quantity });
 
-            if (error) {
-                // Fallback
-                await supabase.from('products').update({ stock: product.stock - item.quantity }).eq('id', item.productId);
+                if (error) {
+                    console.error('RPC decrement failed, trying manual update', error);
+                    await supabase
+                        .from('products')
+                        .update({ stock: product.stock - item.quantity })
+                        .eq('id', item.productId);
+                }
+            } else {
+                throw new Error(`สินค้า ${item.productId} หมดแล้ว`);
             }
         }
     }
