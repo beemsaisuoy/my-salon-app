@@ -5,6 +5,7 @@ import { CartProvider } from '@/components/CartProvider';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import Toast from '@/components/Toast';
+import AIChatWidget from '@/components/AIChatWidget';
 
 export const metadata: Metadata = {
     title: 'Salon & Sweets | ร้านทำผม & ขนมหวาน',
@@ -28,6 +29,7 @@ export default function RootLayout({
                         </main>
                         <Footer />
                         <Toast />
+                        <AIChatWidget />
                     </CartProvider>
                 </AuthProvider>
             </body>

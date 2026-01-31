@@ -3,11 +3,13 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import {
     signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
     signInWithPopup,
     GoogleAuthProvider,
     signOut,
     onAuthStateChanged,
     User,
+    updateProfile,
 } from 'firebase/auth';
 import { auth } from './firebase';
 
@@ -17,6 +19,7 @@ interface AuthContextType {
     isAdmin: boolean;
     signInWithEmail: (email: string, password: string) => Promise<void>;
     signInWithGoogle: () => Promise<void>;
+    register: (email: string, password: string, name: string) => Promise<void>;
     logout: () => Promise<void>;
 }
 
@@ -48,6 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 throw new Error('รหัสผ่านไม่ถูกต้อง');
             } else if (error.code === 'auth/invalid-email') {
                 throw new Error('อีเมลไม่ถูกต้อง');
+            } else if (error.code === 'auth/invalid-credential') {
+                throw new Error('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
             } else {
                 throw new Error('เข้าสู่ระบบไม่สำเร็จ กรุณาลองอีกครั้ง');
             }
@@ -64,6 +69,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const register = async (email: string, password: string, name: string) => {
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            if (userCredential.user) {
+                await updateProfile(userCredential.user, { displayName: name });
+            }
+        } catch (error: any) {
+            console.error('Register error:', error);
+            if (error.code === 'auth/email-already-in-use') {
+                throw new Error('อีเมลนี้ถูกใช้งานแล้ว');
+            } else if (error.code === 'auth/weak-password') {
+                throw new Error('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+            } else if (error.code === 'auth/invalid-email') {
+                throw new Error('รูปแบบอีเมลไม่ถูกต้อง');
+            } else {
+                throw new Error('สมัครสมาชิกไม่สำเร็จ กรุณาลองอีกครั้ง');
+            }
+        }
+    };
+
     const logout = async () => {
         try {
             await signOut(auth);
@@ -77,18 +102,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return (
         <AuthContext.Provider
-            value= {{
-        user,
-            loading,
-            isAdmin,
-            signInWithEmail,
-            signInWithGoogle,
-            logout,
-            }
-}
+            value={{
+                user,
+                loading,
+                isAdmin,
+                signInWithEmail,
+                signInWithGoogle,
+                register,
+                logout,
+            }}
         >
-    { children }
-    </AuthContext.Provider>
+            {children}
+        </AuthContext.Provider>
     );
 }
 
