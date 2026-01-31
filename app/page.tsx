@@ -2,43 +2,38 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { getSettings, ShopSettings } from '@/lib/firestore';
-
-const testimonials = [
-    {
-        name: 'คุณมินนี่',
-        text: 'ทำผมสวยมากค่ะ ช่างเก่งมาก ขนมก็อร่อย!',
-        rating: 5,
-        avatar: '👩',
-    },
-    {
-        name: 'คุณโน่',
-        text: 'บริการดีมาก ราคาสมเหตุสมผล แนะนำเลย',
-        rating: 5,
-        avatar: '👨',
-    },
-    {
-        name: 'คุณแป้ง',
-        text: 'ขนมอร่อยมากค่ะ โดยเฉพาะเค้กเตย หอมมาก!',
-        rating: 5,
-        avatar: '👧',
-    },
-];
+import { getSettings, ShopSettings, getReviews, Review } from '@/lib/firestore';
+import ReviewForm from '@/components/ReviewForm';
+import { useAuth } from '@/lib/auth';
 
 export default function HomePage() {
+    const { user } = useAuth();
     const [settings, setSettings] = useState<ShopSettings | null>(null);
+    const [reviews, setReviews] = useState<Review[]>([]);
+    const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+
+    const fetchData = async () => {
+        try {
+            const [settingsData, reviewsData] = await Promise.all([
+                getSettings(),
+                getReviews()
+            ]);
+            setSettings(settingsData);
+            setReviews(reviewsData);
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        }
+    };
 
     useEffect(() => {
-        const fetchSettings = async () => {
-            try {
-                const data = await getSettings();
-                setSettings(data);
-            } catch (error) {
-                console.error('Error fetching settings:', error);
-            }
-        };
-        fetchSettings();
+        fetchData();
     }, []);
+
+    const handleReviewSuccess = () => {
+        setIsReviewModalOpen(false);
+        fetchData(); // Refresh reviews
+        alert('ขอบคุณสำหรับรีวิวค่ะ! 💕');
+    };
 
     return (
         <div className="pt-16">
@@ -103,7 +98,7 @@ export default function HomePage() {
                                 {/* Main card */}
                                 <div className="bg-white rounded-3xl shadow-2xl p-8 transform rotate-3 hover:rotate-0 transition-transform duration-500">
                                     <img
-                                        src="https://picsum.photos/400/300?random=100"
+                                        src="https://picsum.photos/seed/salon/400/300"
                                         alt="Salon"
                                         className="w-full h-64 object-cover rounded-2xl mb-4"
                                     />
@@ -227,32 +222,63 @@ export default function HomePage() {
             {/* Testimonials */}
             <section className="py-20 bg-white">
                 <div className="container-custom">
-                    <div className="text-center mb-12">
-                        <span className="text-gold-primary font-medium">⭐ รีวิวจากลูกค้า</span>
-                        <h2 className="font-kanit text-3xl md:text-4xl font-bold text-gray-800 mt-2">
-                            ลูกค้าของเราพูดว่าอะไร
-                        </h2>
+                    <div className="flex flex-col md:flex-row items-center justify-between mb-12 gap-4">
+                        <div className="text-center md:text-left">
+                            <span className="text-gold-primary font-medium">⭐ รีวิวจากลูกค้าจริง</span>
+                            <h2 className="font-kanit text-3xl md:text-4xl font-bold text-gray-800 mt-2">
+                                ลูกค้าของเราพูดว่าอะไร
+                            </h2>
+                        </div>
+                        <button
+                            onClick={() => setIsReviewModalOpen(true)}
+                            className="btn-outline px-6 py-2"
+                        >
+                            ✍️ เขียนรีวิว
+                        </button>
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-8">
-                        {testimonials.map((review, i) => (
-                            <div key={i} className="card p-6">
-                                {/* Stars */}
-                                <div className="flex gap-1 mb-4">
-                                    {[...Array(review.rating)].map((_, j) => (
-                                        <span key={j} className="text-gold-primary">⭐</span>
-                                    ))}
+                    {reviews.length === 0 ? (
+                        <div className="text-center py-12 bg-gray-50 rounded-2xl">
+                            <span className="text-4xl block mb-2">💭</span>
+                            <p className="text-gray-500">ยังไม่มีรีวิว มาเป็นคนแรกที่รีวิวกันเถอะ!</p>
+                        </div>
+                    ) : (
+                        <div className="grid md:grid-cols-3 gap-8">
+                            {reviews.map((review) => (
+                                <div key={review.id} className="card p-6 flex flex-col h-full hover:shadow-lg transition-all">
+                                    {/* Header */}
+                                    <div className="flex items-center gap-3 mb-4">
+                                        {review.avatar?.startsWith('http') ? (
+                                            <img
+                                                src={review.avatar}
+                                                alt={review.userName}
+                                                className="w-10 h-10 rounded-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center text-xl">
+                                                {review.avatar || '👤'}
+                                            </div>
+                                        )}
+                                        <div>
+                                            <p className="font-medium text-gray-800">{review.userName}</p>
+                                            <div className="flex gap-1 text-xs">
+                                                {[...Array(5)].map((_, j) => (
+                                                    <span key={j} className={j < review.rating ? 'text-gold-primary' : 'text-gray-200'}>
+                                                        ★
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Content */}
+                                    <p className="text-gray-600 italic flex-grow">
+                                        &ldquo;{review.text}&rdquo;
+                                    </p>
                                 </div>
-                                <p className="text-gray-600 mb-4 italic">
-                                    &ldquo;{review.text}&rdquo;
-                                </p>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-3xl">{review.avatar}</span>
-                                    <span className="font-medium text-gray-800">{review.name}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </section>
 
@@ -281,6 +307,14 @@ export default function HomePage() {
                     </div>
                 </div>
             </section>
+
+            {/* Review Modal */}
+            {isReviewModalOpen && (
+                <ReviewForm
+                    onSuccess={handleReviewSuccess}
+                    onCancel={() => setIsReviewModalOpen(false)}
+                />
+            )}
         </div>
     );
 }
