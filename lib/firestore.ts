@@ -302,3 +302,37 @@ export function isToday(timestamp: Timestamp | undefined): boolean {
     const today = new Date();
     return date.toDateString() === today.toDateString();
 }
+
+// ===================== REVIEWS =====================
+export interface Review {
+    id?: string;
+    userName: string;
+    userId?: string;
+    rating: number;
+    text: string;
+    avatar?: string;
+    createdAt: Timestamp;
+}
+
+export async function getReviews() {
+    try {
+        const q = query(collection(db, 'reviews'), orderBy('createdAt', 'desc'), limit(6));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
+    } catch (error) {
+        console.error('Error fetching reviews:', error);
+        return [];
+    }
+}
+
+export async function addReview(review: Omit<Review, 'id' | 'createdAt'>) {
+    try {
+        await addDoc(collection(db, 'reviews'), {
+            ...review,
+            createdAt: Timestamp.now(),
+        });
+    } catch (error) {
+        console.error('Error adding review:', error);
+        throw new Error('ไม่สามารถบันทึกรีวิวได้');
+    }
+}
