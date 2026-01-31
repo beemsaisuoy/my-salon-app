@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/components/CartProvider';
@@ -19,10 +19,10 @@ export default function CartPage() {
     const [paymentMethod, setPaymentMethod] = useState<'store' | 'promptpay'>('store');
     const [settings, setSettings] = useState<any>(null);
 
-    // Load settings for PromptPay
-    useState(() => {
+    // Load settings for PromptPay (correctly using useEffect)
+    useEffect(() => {
         getSiteSettings().then(setSettings);
-    });
+    }, []);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ message, type });
