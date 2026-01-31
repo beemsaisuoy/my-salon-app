@@ -75,6 +75,7 @@ export async function addProduct(product: Omit<Product, 'id' | 'createdAt'>) {
                 image_url: product.imageUrl,
                 stock: product.stock,
                 pre_order_days: product.preOrderDays,
+                embedding: product.embedding, // Added embedding
             })
             .select()
             .single();
@@ -97,6 +98,7 @@ export async function updateProduct(id: string, data: Partial<Product>) {
         if (data.imageUrl) updateData.image_url = data.imageUrl;
         if (data.stock !== undefined) updateData.stock = data.stock;
         if (data.preOrderDays !== undefined) updateData.pre_order_days = data.preOrderDays;
+        if (data.embedding) updateData.embedding = data.embedding; // Added embedding
 
         const { error } = await supabase
             .from('products')

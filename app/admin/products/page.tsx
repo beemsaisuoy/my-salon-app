@@ -87,19 +87,41 @@ export default function ProductsPage() {
         setIsSubmitting(true);
 
         try {
+            // Generate Embedding
+            let embedding: number[] | undefined;
+            const textToEmbed = `${formData.name} ${formData.description} ${formData.category}`;
+
+            try {
+                const embRes = await fetch('/api/ai/embedding', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: textToEmbed }),
+                });
+                const embData = await embRes.json();
+                if (embData.embedding) {
+                    embedding = embData.embedding;
+                }
+            } catch (err) {
+                console.error('Failed to generate embedding', err);
+                // Continue saving even if embedding fails, but warn?
+            }
+
+            const productData = { ...formData, embedding };
+
             if (editingProduct) {
-                await updateProduct(editingProduct.id!, formData);
+                await updateProduct(editingProduct.id!, productData);
                 setProducts(prev =>
-                    prev.map(p => (p.id === editingProduct.id ? { ...p, ...formData } : p))
+                    prev.map(p => (p.id === editingProduct.id ? { ...p, ...productData } : p))
                 );
                 showToast('แก้ไขสินค้าเรียบร้อย!');
             } else {
-                const id = await addProduct(formData);
-                setProducts(prev => [...prev, { id, ...formData, createdAt: {} as any }]);
+                const id = await addProduct(productData);
+                setProducts(prev => [...prev, { id, ...productData, createdAt: {} as any }]);
                 showToast('เพิ่มสินค้าเรียบร้อย!');
             }
             setIsModalOpen(false);
         } catch (error) {
+            console.error(error);
             showToast('เกิดข้อผิดพลาด', 'error');
         } finally {
             setIsSubmitting(false);
@@ -207,10 +229,10 @@ export default function ProductsPage() {
                                     <td className="font-bold text-pink-dark">฿{product.price}</td>
                                     <td>
                                         <span className={`px-2 py-1 rounded-full text-xs font-bold ${product.stock > 0
-                                                ? 'bg-green-100 text-green-700'
-                                                : product.preOrderDays > 0
-                                                    ? 'bg-yellow-100 text-yellow-700'
-                                                    : 'bg-red-100 text-red-700'
+                                            ? 'bg-green-100 text-green-700'
+                                            : product.preOrderDays > 0
+                                                ? 'bg-yellow-100 text-yellow-700'
+                                                : 'bg-red-100 text-red-700'
                                             }`}>
                                             {product.stock > 0
                                                 ? `มีของ (${product.stock})`
