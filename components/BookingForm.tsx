@@ -142,8 +142,8 @@ export default function BookingForm({ onSubmit, isLoading }: BookingFormProps) {
                             type="button"
                             onClick={() => setFormData({ ...formData, service: service.name })}
                             className={`p-4 rounded-xl border-2 text-left transition-all ${formData.service === service.name
-                                    ? 'border-pink-primary bg-pink-light shadow-lg'
-                                    : 'border-gray-200 hover:border-pink-200 hover:bg-pink-50'
+                                ? 'border-pink-primary bg-pink-light shadow-lg'
+                                : 'border-gray-200 hover:border-pink-200 hover:bg-pink-50'
                                 }`}
                         >
                             <p className="font-kanit font-semibold text-gray-800">{service.name}</p>
@@ -174,21 +174,15 @@ export default function BookingForm({ onSubmit, isLoading }: BookingFormProps) {
 
                 <div className="form-group">
                     <label className="form-label">🕐 เลือกเวลา *</label>
-                    <div className="grid grid-cols-4 gap-2">
-                        {timeSlots.map((time) => (
-                            <button
-                                key={time}
-                                type="button"
-                                onClick={() => setFormData({ ...formData, time })}
-                                className={`py-2 px-3 rounded-lg border-2 text-sm font-medium transition-all ${formData.time === time
-                                        ? 'border-pink-primary bg-pink-primary text-white'
-                                        : 'border-gray-200 hover:border-pink-200 text-gray-700'
-                                    }`}
-                            >
-                                {time}
-                            </button>
-                        ))}
-                    </div>
+                    <input
+                        type="time"
+                        value={formData.time}
+                        onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                        className={`input-field ${errors.time ? 'border-red-400' : ''}`}
+                        min="09:00"
+                        max="18:00"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">ร้านเปิด 09:00 - 18:00 น.</p>
                     {errors.time && (
                         <p className="text-red-500 text-sm mt-1">{errors.time}</p>
                     )}

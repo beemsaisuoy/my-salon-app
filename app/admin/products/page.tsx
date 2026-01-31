@@ -306,15 +306,34 @@ export default function ProductsPage() {
 
                                 <div className="form-group">
                                     <label className="form-label">หมวดหมู่ *</label>
-                                    <select
-                                        value={formData.category}
-                                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                        className="select-field"
-                                    >
-                                        {categories.map(cat => (
-                                            <option key={cat} value={cat}>{cat}</option>
-                                        ))}
-                                    </select>
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={categories.includes(formData.category) ? formData.category : 'custom'}
+                                            onChange={(e) => {
+                                                if (e.target.value !== 'custom') {
+                                                    setFormData({ ...formData, category: e.target.value })
+                                                } else {
+                                                    setFormData({ ...formData, category: '' })
+                                                }
+                                            }}
+                                            className="select-field w-1/2"
+                                        >
+                                            {categories.map(cat => (
+                                                <option key={cat} value={cat}>{cat}</option>
+                                            ))}
+                                            <option value="custom">+ เพิ่มเอง</option>
+                                        </select>
+                                        {!categories.includes(formData.category) && (
+                                            <input
+                                                type="text"
+                                                value={formData.category}
+                                                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                                className="input-field w-1/2"
+                                                placeholder="ระบุหมวดหมู่"
+                                                required
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
@@ -327,6 +346,7 @@ export default function ProductsPage() {
                                     className="input-field"
                                     placeholder="https://..."
                                 />
+                                <p className="text-xs text-gray-500 mt-1">ใส่ลิงก์รูปภาพจาก Google Drive หรือเว็บอื่นได้เลย</p>
                             </div>
 
                             <div className="flex items-center gap-3">
