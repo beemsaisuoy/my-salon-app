@@ -1,9 +1,10 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { supabase } from './supabase';
 
-// Init Supabase Client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
+// Supabase Client is imported from './supabase'
+// const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+// const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
 
 export interface Product {
     id?: string;
