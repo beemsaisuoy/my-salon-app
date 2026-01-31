@@ -274,7 +274,7 @@ export interface Order {
     subtotal: number;
     tax: number;
     total: number;
-    status: 'รอเตรียม' | 'เตรียมเสร็จ' | 'รอรับ' | 'รับแล้ว' | 'ยกเลิก';
+    status: 'Pending' | 'Paid' | 'Shipping' | 'Completed' | 'Cancelled' | 'รอเตรียม' | 'เตรียมเสร็จ' | 'รอรับ' | 'รับแล้ว' | 'ยกเลิก';
     paymentMethod: string;
     createdAt: string;
 }
@@ -343,6 +343,27 @@ export async function updateOrderStatus(id: string, status: Order['status']) {
     } catch (error) {
         console.error('Error updating order:', error);
         throw new Error('ไม่สามารถอัพเดทสถานะได้');
+    }
+}
+
+export async function deductOrderStock(orderId: string) {
+    try {
+        // 1. Fetch Order Items
+        const { data: order, error: fetchError } = await supabase
+            .from('orders')
+            .select('items')
+            .eq('id', orderId)
+            .single();
+
+        if (fetchError || !order) throw fetchError || new Error('Order not found');
+
+        // 2. Deduct Stock
+        const items = order.items as OrderItem[];
+        await deductStock(items.map(i => ({ productId: i.productId, quantity: i.quantity })));
+
+    } catch (error) {
+        console.error('Error deducting order stock:', error);
+        throw error;
     }
 }
 
