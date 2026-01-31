@@ -190,3 +190,19 @@ export async function checkPendingOrderNotification(orderId: string, createdAt: 
         }
     }
 }
+
+// NEW: Send Line Notify to Admin
+export async function sendLineNotify(message: string) {
+    try {
+        const settings = await getSettings();
+        if (!settings.lineToken) return;
+
+        await fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message, token: settings.lineToken }),
+        });
+    } catch (e) {
+        console.error('Failed to send Line Notify', e);
+    }
+}

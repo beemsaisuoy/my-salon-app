@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/components/CartProvider';
 import { useAuth } from '@/lib/auth';
 import { addOrder, deductStock, getSiteSettings } from '@/lib/firestore';
-import { createNotification } from '@/lib/notifications';
+import { createNotification, sendLineNotify } from '@/lib/notifications';
 import PromptPayQR from '@/components/PromptPayQR';
 
 export default function CartPage() {
@@ -63,6 +63,10 @@ export default function CartPage() {
                 `คำสั่งซื้อใหม่จาก ${user.user_metadata?.full_name || user.email?.split('@')[0]} — รวม ฿${total.toLocaleString()}`,
                 orderId
             );
+
+            // Send Line Notify
+            await sendLineNotify(`🛍️ มีคำสั่งซื้อใหม่! (฿${total.toLocaleString()})\nจาก: ${user.user_metadata?.full_name || user.email}\nดูรายละเอียดที่ Admin Dashboard`);
+
 
             clearCart();
             setIsSuccess(true);

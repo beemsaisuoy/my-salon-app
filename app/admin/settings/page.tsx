@@ -18,6 +18,8 @@ export default function AdminSettingsPage() {
     const [promptpayNumber, setPromptpayNumber] = useState('');
     const [promptpayName, setPromptpayName] = useState('');
     const [lineToken, setLineToken] = useState('');
+    const [lineChannelAccessToken, setLineChannelAccessToken] = useState('');
+    const [lineChannelSecret, setLineChannelSecret] = useState('');
     const [preOrderDays, setPreOrderDays] = useState(3);
 
     useEffect(() => {
@@ -35,6 +37,8 @@ export default function AdminSettingsPage() {
                 setPromptpayNumber(data.promptpayNumber);
                 setPromptpayName(data.promptpayName);
                 setLineToken(data.lineToken || '');
+                setLineChannelAccessToken(data.lineChannelAccessToken || '');
+                setLineChannelSecret(data.lineChannelSecret || '');
                 setPreOrderDays(data.shopSettings.preOrderDays || 3);
             } catch (error) {
                 console.error('Failed to load settings', error);
@@ -55,6 +59,8 @@ export default function AdminSettingsPage() {
                 promptpayNumber,
                 promptpayName,
                 lineToken,
+                lineChannelAccessToken,
+                lineChannelSecret,
                 shopSettings: {
                     preOrderDays,
                 },
@@ -119,6 +125,43 @@ export default function AdminSettingsPage() {
                             placeholder="วาง Token ที่นี่เพื่อรับแจ้งเตือน"
                         />
                         <p className="text-xs text-gray-500 mt-1">ปล่อยว่างไว้หากไม่ต้องการใช้งาน</p>
+                    </div>
+                </div>
+
+                {/* Line OA Settings */}
+                <div className="space-y-4">
+                    <h2 className="text-xl font-semibold text-blue-600 border-b pb-2">🤖 AI Agent (Line OA)</h2>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Channel Access Token</label>
+                        <input
+                            type="text"
+                            value={lineChannelAccessToken}
+                            onChange={(e) => setLineChannelAccessToken(e.target.value)}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none"
+                            placeholder="วาง Channel Access Token ที่นี่"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Channel Secret</label>
+                        <input
+                            type="password"
+                            value={lineChannelSecret}
+                            onChange={(e) => setLineChannelSecret(e.target.value)}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none"
+                            placeholder="วาง Channel Secret ที่นี่"
+                        />
+                    </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg border text-sm">
+                        <p className="font-semibold text-gray-700">Webhook URL:</p>
+                        <code className="block bg-gray-200 p-2 rounded mt-1 overflow-x-auto">
+                            {typeof window !== 'undefined' ? `${window.location.origin}/api/webhook/line` : '/api/webhook/line'}
+                        </code>
+                        <p className="text-xs text-gray-500 mt-1">
+                            นำ URL นี้ไปใส่ใน Line Developers Console เพื่อเปิดใช้งาน AI
+                        </p>
                     </div>
                 </div>
 

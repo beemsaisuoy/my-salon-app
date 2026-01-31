@@ -351,6 +351,8 @@ export interface SiteSettings {
     promptpayNumber: string;
     promptpayName: string;
     lineToken: string;
+    lineChannelAccessToken?: string;
+    lineChannelSecret?: string;
     welcomeMessage?: string; // Mapped from shop_settings
     notifyBooking?: boolean; // Mapped
     notifyLowStock?: boolean; // Mapped
@@ -392,6 +394,8 @@ export async function getSiteSettings(): Promise<SiteSettings> {
             promptpayNumber: data.promptpay_number,
             promptpayName: data.promptpay_name,
             lineToken: data.line_token,
+            lineChannelAccessToken: data.line_channel_access_token,
+            lineChannelSecret: data.line_channel_secret,
             shopSettings: shopSettings,
             // Map nested settings to top level for backward compatibility
             welcomeMessage: shopSettings.welcomeMessage,
@@ -414,6 +418,8 @@ export async function updateSiteSettings(settings: Partial<SiteSettings>) {
         if (settings.promptpayNumber !== undefined) updatePayload.promptpay_number = settings.promptpayNumber;
         if (settings.promptpayName !== undefined) updatePayload.promptpay_name = settings.promptpayName;
         if (settings.lineToken !== undefined) updatePayload.line_token = settings.lineToken;
+        if (settings.lineChannelAccessToken !== undefined) updatePayload.line_channel_access_token = settings.lineChannelAccessToken;
+        if (settings.lineChannelSecret !== undefined) updatePayload.line_channel_secret = settings.lineChannelSecret;
 
         // Handle shopSettings update (merge with existing or provided)
         if (settings.shopSettings) {
