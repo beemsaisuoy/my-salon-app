@@ -16,7 +16,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@salon.com';
+const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@salon.com').split(',').map(e => e.trim());
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw new Error('ออกจากระบบไม่สำเร็จ');
     };
 
-    const isAdmin = user?.email === ADMIN_EMAIL;
+    const isAdmin = !!user?.email && ADMIN_EMAILS.includes(user.email);
 
     return (
         <AuthContext.Provider
