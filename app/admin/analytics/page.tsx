@@ -43,12 +43,12 @@ export default function AnalyticsPage() {
             const lastMonthYear = thisMonth === 0 ? thisYear - 1 : thisYear;
 
             const thisMonthRevenue = orders.filter(o => {
-                const d = o.createdAt?.toDate();
+                const d = o.createdAt ? new Date(o.createdAt) : null;
                 return d && d.getMonth() === thisMonth && d.getFullYear() === thisYear;
             }).reduce((sum, o) => sum + o.total, 0);
 
             const lastMonthRevenue = orders.filter(o => {
-                const d = o.createdAt?.toDate();
+                const d = o.createdAt ? new Date(o.createdAt) : null;
                 return d && d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
             }).reduce((sum, o) => sum + o.total, 0);
 
@@ -65,7 +65,8 @@ export default function AnalyticsPage() {
                 date.setDate(date.getDate() - i);
                 const dateStr = date.toISOString().split('T')[0];
                 const dayOrders = orders.filter(o => {
-                    const orderDate = o.createdAt?.toDate().toISOString().split('T')[0];
+                    if (!o.createdAt) return false;
+                    const orderDate = new Date(o.createdAt).toISOString().split('T')[0];
                     return orderDate === dateStr;
                 });
                 const revenue = dayOrders.reduce((sum, o) => sum + o.total, 0);
@@ -131,7 +132,7 @@ export default function AnalyticsPage() {
             // Customer growth (new vs returning)
             const customerFirstOrder: Record<string, Date> = {};
             orders.forEach(order => {
-                const orderDate = order.createdAt?.toDate();
+                const orderDate = order.createdAt ? new Date(order.createdAt) : null;
                 if (orderDate) {
                     if (!customerFirstOrder[order.userId] || orderDate < customerFirstOrder[order.userId]) {
                         customerFirstOrder[order.userId] = orderDate;
@@ -146,7 +147,8 @@ export default function AnalyticsPage() {
                 const dateStr = date.toISOString().split('T')[0];
 
                 const dayOrders = orders.filter(o => {
-                    const orderDate = o.createdAt?.toDate().toISOString().split('T')[0];
+                    if (!o.createdAt) return false;
+                    const orderDate = new Date(o.createdAt).toISOString().split('T')[0];
                     return orderDate === dateStr;
                 });
 

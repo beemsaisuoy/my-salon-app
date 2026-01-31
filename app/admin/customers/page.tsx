@@ -46,7 +46,7 @@ export default function CustomersPage() {
                 customerMap[order.userId].totalSpent += order.total;
                 customerMap[order.userId].orders.push(order);
 
-                const orderDate = order.createdAt?.toDate();
+                const orderDate = order.createdAt ? new Date(order.createdAt) : null;
                 if (orderDate && (!customerMap[order.userId].lastOrderDate || orderDate > customerMap[order.userId].lastOrderDate!)) {
                     customerMap[order.userId].lastOrderDate = orderDate;
                 }
@@ -192,7 +192,7 @@ export default function CustomersPage() {
                                                     <div className="text-right">
                                                         <p className="font-bold text-pink-dark">฿{order.total.toLocaleString()}</p>
                                                         <span className={`badge text-xs ${order.status === 'รับแล้ว' ? 'badge-green' :
-                                                                order.status === 'ยกเลิก' ? 'badge-red' : 'badge-yellow'
+                                                            order.status === 'ยกเลิก' ? 'badge-red' : 'badge-yellow'
                                                             }`}>
                                                             {order.status}
                                                         </span>

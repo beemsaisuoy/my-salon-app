@@ -73,7 +73,8 @@ export default function AdminDashboard() {
                     date.setDate(date.getDate() - i);
                     const dateStr = date.toISOString().split('T')[0];
                     const dayOrders = orders.filter(o => {
-                        const orderDate = o.createdAt?.toDate().toISOString().split('T')[0];
+                        if (!o.createdAt) return false;
+                        const orderDate = new Date(o.createdAt).toISOString().split('T')[0];
                         return orderDate === dateStr;
                     });
                     const revenue = dayOrders.reduce((sum, o) => sum + o.total, 0);

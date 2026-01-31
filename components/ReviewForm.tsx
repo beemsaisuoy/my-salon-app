@@ -13,7 +13,7 @@ export default function ReviewForm({ onSuccess, onCancel }: ReviewFormProps) {
     const { user } = useAuth();
     const [rating, setRating] = useState(5);
     const [text, setText] = useState('');
-    const [name, setName] = useState(user?.displayName || '');
+    const [name, setName] = useState(user?.user_metadata?.full_name || user?.email?.split('@')[0] || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -24,10 +24,10 @@ export default function ReviewForm({ onSuccess, onCancel }: ReviewFormProps) {
         try {
             await addReview({
                 userName: name,
-                userId: user?.uid,
+                userId: user?.id,
                 rating,
                 text,
-                avatar: user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
+                avatar: user?.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
             });
             onSuccess();
         } catch (error) {

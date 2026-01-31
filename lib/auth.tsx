@@ -1,17 +1,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import {
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    signInWithPopup,
-    GoogleAuthProvider,
-    signOut,
-    onAuthStateChanged,
-    User,
-    updateProfile,
-} from 'firebase/auth';
-import { auth } from './firebase';
+import { User } from '@supabase/supabase-js';
+import { supabase } from './supabase';
 
 interface AuthContextType {
     user: User | null;
@@ -32,70 +23,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setUser(user);
+        // Check active session
+        const getSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            setUser(session?.user ?? null);
+            setLoading(false);
+        };
+        getSession();
+
+        // Listen for changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
             setLoading(false);
         });
 
-        return () => unsubscribe();
+        return () => subscription.unsubscribe();
     }, []);
 
     const signInWithEmail = async (email: string, password: string) => {
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-        } catch (error: any) {
-            console.error('Login error:', error);
-            if (error.code === 'auth/user-not-found') {
-                throw new Error('ไม่พบบัญชีผู้ใช้นี้');
-            } else if (error.code === 'auth/wrong-password') {
-                throw new Error('รหัสผ่านไม่ถูกต้อง');
-            } else if (error.code === 'auth/invalid-email') {
-                throw new Error('อีเมลไม่ถูกต้อง');
-            } else if (error.code === 'auth/invalid-credential') {
-                throw new Error('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
-            } else {
-                throw new Error('เข้าสู่ระบบไม่สำเร็จ กรุณาลองอีกครั้ง');
-            }
-        }
+        const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
+        if (error) throw new Error(translateAuthError(error.message));
     };
 
     const signInWithGoogle = async () => {
-        try {
-            const provider = new GoogleAuthProvider();
-            await signInWithPopup(auth, provider);
-        } catch (error: any) {
-            console.error('Google login error:', error);
-            throw new Error('เข้าสู่ระบบด้วย Google ไม่สำเร็จ');
-        }
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: `${window.location.origin}/auth/callback`,
+            },
+        });
+        if (error) throw new Error('เข้าสู่ระบบด้วย Google ไม่สำเร็จ');
     };
 
     const register = async (email: string, password: string, name: string) => {
-        try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            if (userCredential.user) {
-                await updateProfile(userCredential.user, { displayName: name });
-            }
-        } catch (error: any) {
-            console.error('Register error:', error);
-            if (error.code === 'auth/email-already-in-use') {
-                throw new Error('อีเมลนี้ถูกใช้งานแล้ว');
-            } else if (error.code === 'auth/weak-password') {
-                throw new Error('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
-            } else if (error.code === 'auth/invalid-email') {
-                throw new Error('รูปแบบอีเมลไม่ถูกต้อง');
-            } else {
-                throw new Error('สมัครสมาชิกไม่สำเร็จ กรุณาลองอีกครั้ง');
-            }
-        }
+        const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    full_name: name, // Supabase stores profile data in user_metadata
+                },
+            },
+        });
+        if (error) throw new Error(translateAuthError(error.message));
     };
 
     const logout = async () => {
-        try {
-            await signOut(auth);
-        } catch (error) {
-            console.error('Logout error:', error);
-            throw new Error('ออกจากระบบไม่สำเร็จ');
-        }
+        const { error } = await supabase.auth.signOut();
+        if (error) throw new Error('ออกจากระบบไม่สำเร็จ');
     };
 
     const isAdmin = user?.email === ADMIN_EMAIL;
@@ -123,4 +101,12 @@ export function useAuth() {
         throw new Error('useAuth must be used within an AuthProvider');
     }
     return context;
+}
+
+function translateAuthError(message: string): string {
+    if (message.includes('Invalid login credentials')) return 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+    if (message.includes('User already registered')) return 'อีเมลนี้ถูกใช้งานแล้ว';
+    if (message.includes('Password should be')) return 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
+    if (message.includes('invalid email')) return 'รูปแบบอีเมลไม่ถูกต้อง';
+    return 'เกิดข้อผิดพลาด กรุณาลองใหม่';
 }

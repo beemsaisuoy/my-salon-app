@@ -19,7 +19,8 @@ export default function ProductsPage() {
         price: 0,
         category: 'คุกกี้',
         imageUrl: '',
-        inStock: true,
+        stock: 0,
+        preOrderDays: 3,
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -36,7 +37,7 @@ export default function ProductsPage() {
 
             // Check low stock notifications
             for (const product of data) {
-                if (!product.inStock) {
+                if (product.stock === 0 && product.preOrderDays === 0) {
                     await checkLowStockNotification(product.id!, product.name);
                 }
             }
@@ -61,7 +62,8 @@ export default function ProductsPage() {
             price: 0,
             category: 'คุกกี้',
             imageUrl: `https://picsum.photos/400/300?random=${Date.now()}`,
-            inStock: true,
+            stock: 10,
+            preOrderDays: 3,
         });
         setIsModalOpen(true);
     };
@@ -74,7 +76,8 @@ export default function ProductsPage() {
             price: product.price,
             category: product.category,
             imageUrl: product.imageUrl,
-            inStock: product.inStock,
+            stock: product.stock,
+            preOrderDays: product.preOrderDays,
         });
         setIsModalOpen(true);
     };
@@ -112,24 +115,6 @@ export default function ProductsPage() {
             showToast('เกิดข้อผิดพลาด', 'error');
         } finally {
             setDeleteConfirm(null);
-        }
-    };
-
-    const handleToggleStock = async (product: Product) => {
-        try {
-            const newStock = !product.inStock;
-            await updateProduct(product.id!, { inStock: newStock });
-            setProducts(prev =>
-                prev.map(p => (p.id === product.id ? { ...p, inStock: newStock } : p))
-            );
-
-            if (!newStock) {
-                await checkLowStockNotification(product.id!, product.name);
-            }
-
-            showToast(newStock ? 'มีในสต็อกแล้ว' : 'หมดสต็อกแล้ว');
-        } catch (error) {
-            showToast('เกิดข้อผิดพลาด', 'error');
         }
     };
 
@@ -193,7 +178,7 @@ export default function ProductsPage() {
                             <th>ชื่อสินค้า</th>
                             <th>หมวด</th>
                             <th>ราคา</th>
-                            <th>สถานะ</th>
+                            <th>สต็อก</th>
                             <th>จัดการ</th>
                         </tr>
                     </thead>
@@ -221,12 +206,18 @@ export default function ProductsPage() {
                                     <td>{product.category}</td>
                                     <td className="font-bold text-pink-dark">฿{product.price}</td>
                                     <td>
-                                        <button
-                                            onClick={() => handleToggleStock(product)}
-                                            className={`toggle ${product.inStock ? 'toggle-checked' : 'toggle-unchecked'}`}
-                                        >
-                                            <span className={`toggle-dot ${product.inStock ? 'toggle-dot-checked' : 'toggle-dot-unchecked'}`} />
-                                        </button>
+                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${product.stock > 0
+                                                ? 'bg-green-100 text-green-700'
+                                                : product.preOrderDays > 0
+                                                    ? 'bg-yellow-100 text-yellow-700'
+                                                    : 'bg-red-100 text-red-700'
+                                            }`}>
+                                            {product.stock > 0
+                                                ? `มีของ (${product.stock})`
+                                                : product.preOrderDays > 0
+                                                    ? `Pre-order (${product.preOrderDays} วัน)`
+                                                    : 'หมด'}
+                                        </span>
                                     </td>
                                     <td>
                                         <div className="flex gap-2">
@@ -282,12 +273,52 @@ export default function ProductsPage() {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">คำอธิบาย</label>
+                                <label className="form-label flex justify-between items-center">
+                                    <span>คำอธิบาย</span>
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            if (!formData.name) {
+                                                showToast('กรุณาใส่ชื่อสินค้าก่อน', 'error');
+                                                return;
+                                            }
+                                            setIsSubmitting(true);
+                                            try {
+                                                const res = await fetch('/api/ai/generate-description', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                        name: formData.name,
+                                                        category: formData.category === 'custom' ? '' : formData.category,
+                                                    }),
+                                                });
+                                                const data = await res.json();
+                                                if (data.description) {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        description: data.description
+                                                    }));
+                                                    showToast('AI เขียนให้แล้ว! ✨');
+                                                } else {
+                                                    showToast('AI ไม่ตอบสนอง', 'error');
+                                                }
+                                            } catch (e) {
+                                                showToast('เกิดข้อผิดพลาด', 'error');
+                                            } finally {
+                                                setIsSubmitting(false);
+                                            }
+                                        }}
+                                        className="text-xs text-pink-600 hover:text-pink-800 bg-pink-50 px-2 py-1 rounded-full flex items-center gap-1 transition-colors"
+                                    >
+                                        <span>✨</span> ให้ AI เขียนให้
+                                    </button>
+                                </label>
                                 <textarea
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                     className="input-field"
                                     rows={3}
+                                    placeholder="ใส่รายละเอียดสินค้า หรือกดปุ่ม ✨ ให้ AI ช่วยคิด"
                                 />
                             </div>
 
@@ -346,18 +377,30 @@ export default function ProductsPage() {
                                     className="input-field"
                                     placeholder="https://..."
                                 />
-                                <p className="text-xs text-gray-500 mt-1">ใส่ลิงก์รูปภาพจาก Google Drive หรือเว็บอื่นได้เลย</p>
                             </div>
 
-                            <div className="flex items-center gap-3">
-                                <input
-                                    type="checkbox"
-                                    id="inStock"
-                                    checked={formData.inStock}
-                                    onChange={(e) => setFormData({ ...formData, inStock: e.target.checked })}
-                                    className="w-5 h-5 text-pink-primary rounded"
-                                />
-                                <label htmlFor="inStock" className="text-gray-700">มีสินค้าในสต็อก</label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="form-group">
+                                    <label className="form-label">จำนวนสต็อก</label>
+                                    <input
+                                        type="number"
+                                        value={formData.stock}
+                                        onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })}
+                                        className="input-field"
+                                        min="0"
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Pre-order (วัน)</label>
+                                    <input
+                                        type="number"
+                                        value={formData.preOrderDays}
+                                        onChange={(e) => setFormData({ ...formData, preOrderDays: Number(e.target.value) })}
+                                        className="input-field"
+                                        min="0"
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">ใส่ 0 ถ้าไม่รับ Pre-order</p>
+                                </div>
                             </div>
 
                             <div className="flex gap-3 pt-4">

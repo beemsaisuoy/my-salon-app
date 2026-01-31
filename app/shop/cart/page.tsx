@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/components/CartProvider';
 import { useAuth } from '@/lib/auth';
-import { addOrder } from '@/lib/firestore';
+import { addOrder, deductStock, getSiteSettings } from '@/lib/firestore';
 import { createNotification } from '@/lib/notifications';
+import PromptPayQR from '@/components/PromptPayQR';
 
 export default function CartPage() {
     const router = useRouter();
@@ -15,6 +16,13 @@ export default function CartPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [paymentMethod, setPaymentMethod] = useState<'store' | 'promptpay'>('store');
+    const [settings, setSettings] = useState<any>(null);
+
+    // Load settings for PromptPay
+    useState(() => {
+        getSiteSettings().then(setSettings);
+    });
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         setToast({ message, type });
@@ -29,9 +37,12 @@ export default function CartPage() {
 
         setIsLoading(true);
         try {
+            // Deduct Stock first
+            await deductStock(items.map(i => ({ productId: i.productId, quantity: i.quantity })));
+
             const orderId = await addOrder({
-                userId: user.uid,
-                userName: user.displayName || user.email?.split('@')[0] || 'ลูกค้า',
+                userId: user.id,
+                userName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'ลูกค้า',
                 userEmail: user.email || '',
                 items: items.map(item => ({
                     productId: item.productId,
@@ -43,13 +54,13 @@ export default function CartPage() {
                 tax,
                 total,
                 status: 'รอเตรียม',
-                paymentMethod: 'จ่ายที่ร้าน',
+                paymentMethod: paymentMethod === 'promptpay' ? 'โอนเงิน (PromptPay)' : 'จ่ายที่ร้าน',
             });
 
             // Create notification
             await createNotification(
                 'order_new',
-                `คำสั่งซื้อใหม่จาก ${user.displayName || user.email?.split('@')[0]} — รวม ฿${total.toLocaleString()}`,
+                `คำสั่งซื้อใหม่จาก ${user.user_metadata?.full_name || user.email?.split('@')[0]} — รวม ฿${total.toLocaleString()}`,
                 orderId
             );
 
@@ -77,8 +88,21 @@ export default function CartPage() {
                     <p className="text-gray-600 mb-6">
                         ขอบคุณที่อุดหนุนค่ะ มารับขนมได้เลยที่ร้าน
                     </p>
+                    {paymentMethod === 'promptpay' && (
+                        <div className="bg-pink-50 p-4 rounded-xl mb-6">
+                            <p className="font-semibold text-pink-600 mb-2">กรุณาชำระเงิน</p>
+                            {settings && (
+                                <PromptPayQR
+                                    phoneNumber={settings.promptpayNumber || '0812345678'}
+                                    amount={total}
+                                    className="bg-white shadow-sm"
+                                />
+                            )}
+                            <p className="text-sm text-gray-500 mt-2">แจ้งสลิปการโอนที่เคาน์เตอร์ได้เลยค่ะ</p>
+                        </div>
+                    )}
                     <p className="text-pink-dark font-medium mb-6">
-                        💰 ชำระเงินที่ร้าน: ฿{total.toLocaleString()}
+                        💰 ยอดรวม: ฿{total.toLocaleString()}
                     </p>
                     <div className="flex flex-col gap-3">
                         <Link href="/shop" className="btn-primary">
@@ -201,11 +225,37 @@ export default function CartPage() {
                                     </div>
 
                                     {/* Payment Method */}
-                                    <div className="bg-gold-light/50 rounded-xl p-4 mb-6">
-                                        <p className="text-sm text-gray-600 mb-2">วิธีชำระเงิน</p>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xl">💵</span>
-                                            <span className="font-medium">จ่ายที่ร้าน</span>
+                                    <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                                        <p className="text-sm font-semibold text-gray-700 mb-3">วิธีชำระเงิน</p>
+                                        <div className="space-y-2">
+                                            <label className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-pink-300 transition-all">
+                                                <input
+                                                    type="radio"
+                                                    name="payment"
+                                                    value="store"
+                                                    checked={paymentMethod === 'store'}
+                                                    onChange={() => setPaymentMethod('store')}
+                                                    className="text-pink-500 focus:ring-pink-500"
+                                                />
+                                                <div className="flex items-center gap-2">
+                                                    <span>💵</span>
+                                                    <span>จ่ายที่ร้าน (เงินสด)</span>
+                                                </div>
+                                            </label>
+                                            <label className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-pink-300 transition-all">
+                                                <input
+                                                    type="radio"
+                                                    name="payment"
+                                                    value="promptpay"
+                                                    checked={paymentMethod === 'promptpay'}
+                                                    onChange={() => setPaymentMethod('promptpay')}
+                                                    className="text-pink-500 focus:ring-pink-500"
+                                                />
+                                                <div className="flex items-center gap-2">
+                                                    <span>📲</span>
+                                                    <span>โอนเงิน (PromptPay)</span>
+                                                </div>
+                                            </label>
                                         </div>
                                     </div>
 

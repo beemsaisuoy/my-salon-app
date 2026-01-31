@@ -9,7 +9,8 @@ interface ProductCardProps {
     price: number;
     category: string;
     imageUrl: string;
-    inStock: boolean;
+    stock: number;
+    preOrderDays: number;
 }
 
 export default function ProductCard({
@@ -19,7 +20,8 @@ export default function ProductCard({
     price,
     category,
     imageUrl,
-    inStock,
+    stock,
+    preOrderDays,
 }: ProductCardProps) {
     const { addToCart } = useCart();
 
@@ -42,6 +44,9 @@ export default function ProductCard({
         }
     };
 
+    const isPreOrder = stock <= 0 && preOrderDays > 0;
+    const canBuy = stock > 0 || isPreOrder;
+
     return (
         <div className="card overflow-hidden group">
             {/* Image */}
@@ -51,9 +56,14 @@ export default function ProductCard({
                     alt={name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                 />
-                {!inStock && (
+                {!canBuy && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                         <span className="badge badge-red font-kanit">หมด</span>
+                    </div>
+                )}
+                {isPreOrder && (
+                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                        <span className="badge badge-gold font-kanit">สั่งล่วงหน้า {preOrderDays} วัน</span>
                     </div>
                 )}
                 <div className="absolute top-3 left-3">
@@ -78,10 +88,10 @@ export default function ProductCard({
                     </span>
                     <button
                         onClick={handleAddToCart}
-                        disabled={!inStock}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all ${inStock
-                                ? 'bg-pink-primary text-white hover:bg-pink-dark hover:shadow-lg'
-                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        disabled={!canBuy}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all ${canBuy
+                            ? 'bg-pink-primary text-white hover:bg-pink-dark hover:shadow-lg'
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                             }`}
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

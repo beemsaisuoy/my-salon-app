@@ -74,7 +74,7 @@ export default function Navbar() {
                         {user ? (
                             <div className="flex items-center gap-3">
                                 <span className="text-sm text-gray-600 hidden lg:block">
-                                    {user.displayName || user.email?.split('@')[0]}
+                                    {user.user_metadata?.full_name || user.email?.split('@')[0]}
                                 </span>
                                 {isAdmin && (
                                     <Link href="/admin" className="btn-secondary text-sm py-2 px-4">

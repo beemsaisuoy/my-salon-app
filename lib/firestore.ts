@@ -1,19 +1,140 @@
-import {
-    collection,
-    doc,
-    getDocs,
-    getDoc,
-    addDoc,
-    updateDoc,
-    deleteDoc,
-    query,
-    where,
-    orderBy,
-    limit,
-    Timestamp,
-    setDoc,
-} from 'firebase/firestore';
-import { db } from './firebase';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+// Init Supabase Client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
+
+export interface Product {
+    id?: string;
+    name: string;
+    description: string;
+    price: number;
+    category: string;
+    imageUrl: string;
+    stock: number;
+    preOrderDays: number;
+    createdAt?: any;
+    embedding?: number[]; // Added for vector search
+}
+
+// Vector Search Function
+export async function searchProductsByEmbedding(embedding: number[]) {
+    const { data, error } = await supabase.rpc('match_products', {
+        query_embedding: embedding,
+        match_threshold: 0.5,
+        match_count: 5,
+    });
+    if (error) throw error;
+
+    // Map result to Product interface
+    return data.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        category: p.category,
+        imageUrl: p.imageUrl, // specific mapping if rpc returns camelCase or snake_case
+        stock: p.stock,
+        preOrderDays: 0 // default or fetch
+    })) as Product[];
+}
+
+export async function getProducts() {
+    try {
+        const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return data.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            category: p.category,
+            imageUrl: p.image_url,
+            stock: p.stock ?? 0,
+            preOrderDays: p.pre_order_days ?? 3,
+            createdAt: p.created_at,
+        })) as Product[];
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        throw new Error('ไม่สามารถโหลดสินค้าได้');
+    }
+}
+
+export async function addProduct(product: Omit<Product, 'id' | 'createdAt'>) {
+    try {
+        const { data, error } = await supabase
+            .from('products')
+            .insert({
+                name: product.name,
+                description: product.description,
+                price: product.price,
+                category: product.category,
+                image_url: product.imageUrl,
+                stock: product.stock,
+                pre_order_days: product.preOrderDays,
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data.id;
+    } catch (error) {
+        console.error('Error adding product:', error);
+        throw new Error('ไม่สามารถเพิ่มสินค้าได้');
+    }
+}
+
+export async function updateProduct(id: string, data: Partial<Product>) {
+    try {
+        const updateData: any = {};
+        if (data.name) updateData.name = data.name;
+        if (data.description) updateData.description = data.description;
+        if (data.price) updateData.price = data.price;
+        if (data.category) updateData.category = data.category;
+        if (data.imageUrl) updateData.image_url = data.imageUrl;
+        if (data.stock !== undefined) updateData.stock = data.stock;
+        if (data.preOrderDays !== undefined) updateData.pre_order_days = data.preOrderDays;
+
+        const { error } = await supabase
+            .from('products')
+            .update(updateData)
+            .eq('id', id);
+
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error updating product:', error);
+        throw new Error('ไม่สามารถอัพเดทสินค้าได้');
+    }
+}
+
+export async function deleteProduct(id: string) {
+    try {
+        const { error } = await supabase.from('products').delete().eq('id', id);
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error deleting product:', error);
+        throw new Error('ไม่สามารถลบสินค้าได้');
+    }
+}
+
+// Transaction: Deduct Stock
+export async function deductStock(items: { productId: string; quantity: number }[]) {
+    for (const item of items) {
+        const { data: product } = await supabase.from('products').select('stock').eq('id', item.productId).single();
+
+        if (product && product.stock >= item.quantity) {
+            const { error } = await supabase.rpc('decrement_stock', { p_id: item.productId, q: item.quantity });
+
+            if (error) {
+                // Fallback
+                await supabase.from('products').update({ stock: product.stock - item.quantity }).eq('id', item.productId);
+            }
+        }
+    }
+}
 
 // ===================== BOOKINGS =====================
 export interface Booking {
@@ -26,14 +147,30 @@ export interface Booking {
     date: string;
     time: string;
     status: 'รอยืนยัน' | 'ยืนยัน' | 'เสร็จ' | 'ยกเลิก';
-    createdAt: Timestamp;
+    createdAt: string;
 }
 
 export async function getBookings() {
     try {
-        const q = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+        const { data, error } = await supabase
+            .from('bookings')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return data.map((b: any) => ({
+            id: b.id,
+            customerName: b.customer_name,
+            customerPhone: b.customer_phone,
+            customerEmail: b.customer_email,
+            service: b.service,
+            servicePrice: b.service_price,
+            date: b.date,
+            time: b.time,
+            status: b.status,
+            createdAt: b.created_at,
+        })) as Booking[];
     } catch (error) {
         console.error('Error fetching bookings:', error);
         throw new Error('ไม่สามารถโหลดข้อมูลการจองได้');
@@ -42,9 +179,25 @@ export async function getBookings() {
 
 export async function getBookingsByDate(date: string) {
     try {
-        const q = query(collection(db, 'bookings'), where('date', '==', date));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+        const { data, error } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('date', date);
+
+        if (error) throw error;
+
+        return data.map((b: any) => ({
+            id: b.id,
+            customerName: b.customer_name,
+            customerPhone: b.customer_phone,
+            customerEmail: b.customer_email,
+            service: b.service,
+            servicePrice: b.service_price,
+            date: b.date,
+            time: b.time,
+            status: b.status,
+            createdAt: b.created_at,
+        })) as Booking[];
     } catch (error) {
         console.error('Error fetching bookings by date:', error);
         throw new Error('ไม่สามารถโหลดข้อมูลการจองได้');
@@ -53,11 +206,23 @@ export async function getBookingsByDate(date: string) {
 
 export async function addBooking(booking: Omit<Booking, 'id' | 'createdAt'>) {
     try {
-        const docRef = await addDoc(collection(db, 'bookings'), {
-            ...booking,
-            createdAt: Timestamp.now(),
-        });
-        return docRef.id;
+        const { data, error } = await supabase
+            .from('bookings')
+            .insert({
+                customer_name: booking.customerName,
+                customer_phone: booking.customerPhone,
+                customer_email: booking.customerEmail,
+                service: booking.service,
+                service_price: booking.servicePrice,
+                date: booking.date,
+                time: booking.time,
+                status: booking.status,
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data.id;
     } catch (error) {
         console.error('Error adding booking:', error);
         throw new Error('ไม่สามารถบันทึกการจองได้');
@@ -66,88 +231,15 @@ export async function addBooking(booking: Omit<Booking, 'id' | 'createdAt'>) {
 
 export async function updateBookingStatus(id: string, status: Booking['status']) {
     try {
-        await updateDoc(doc(db, 'bookings', id), { status });
+        const { error } = await supabase
+            .from('bookings')
+            .update({ status })
+            .eq('id', id);
+
+        if (error) throw error;
     } catch (error) {
         console.error('Error updating booking:', error);
         throw new Error('ไม่สามารถอัพเดทสถานะได้');
-    }
-}
-
-// ===================== PRODUCTS =====================
-export interface Product {
-    id?: string;
-    name: string;
-    description: string;
-    price: number;
-    category: string;
-    imageUrl: string;
-    inStock: boolean;
-    createdAt: Timestamp;
-}
-
-const defaultProducts: Omit<Product, 'id' | 'createdAt'>[] = [
-    { name: 'คุกกี้ โช็คโค้ลแท้', description: 'คุกกี้ช็อคโกแลตแท้ กรอบนอกนุ่มใน', price: 65, category: 'คุกกี้', imageUrl: 'https://picsum.photos/400/300?random=1', inStock: true },
-    { name: 'เค้กเตยหอม', description: 'เค้กเตยหอมนุ่มละมุน', price: 180, category: 'เค้ก', imageUrl: 'https://picsum.photos/400/300?random=2', inStock: true },
-    { name: 'คุกกี้ สตรอว์เบอร์รี', description: 'คุกกี้สตรอว์เบอร์รีหอมหวาน', price: 70, category: 'คุกกี้', imageUrl: 'https://picsum.photos/400/300?random=3', inStock: true },
-    { name: 'เค้กน้ำผึ้ง', description: 'เค้กน้ำผึ้งแท้ หวานธรรมชาติ', price: 220, category: 'เค้ก', imageUrl: 'https://picsum.photos/400/300?random=4', inStock: true },
-    { name: 'ขนมปังไส้ครีม', description: 'ขนมปังนุ่มไส้ครีมเข้มข้น', price: 55, category: 'ขนมปัง', imageUrl: 'https://picsum.photos/400/300?random=5', inStock: true },
-    { name: 'ขนมปังไส้ทอง', description: 'ขนมปังไส้ฝอยทองหวานมัน', price: 60, category: 'ขนมปัง', imageUrl: 'https://picsum.photos/400/300?random=6', inStock: true },
-    { name: 'เครื่องดื่มเตย', description: 'น้ำใบเตยเย็นสดชื่น', price: 85, category: 'เครื่องดื่ม', imageUrl: 'https://picsum.photos/400/300?random=7', inStock: true },
-    { name: 'Matcha Latte', description: 'มัทฉะลาเต้เข้มข้นหอมชา', price: 90, category: 'เครื่องดื่ม', imageUrl: 'https://picsum.photos/400/300?random=8', inStock: true },
-];
-
-export async function getProducts() {
-    try {
-        const snapshot = await getDocs(collection(db, 'products'));
-
-        // Auto-seed if empty
-        if (snapshot.empty) {
-            for (const product of defaultProducts) {
-                await addDoc(collection(db, 'products'), {
-                    ...product,
-                    createdAt: Timestamp.now(),
-                });
-            }
-            // Fetch again after seeding
-            const newSnapshot = await getDocs(collection(db, 'products'));
-            return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        }
-
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-    } catch (error) {
-        console.error('Error fetching products:', error);
-        throw new Error('ไม่สามารถโหลดสินค้าได้');
-    }
-}
-
-export async function addProduct(product: Omit<Product, 'id' | 'createdAt'>) {
-    try {
-        const docRef = await addDoc(collection(db, 'products'), {
-            ...product,
-            createdAt: Timestamp.now(),
-        });
-        return docRef.id;
-    } catch (error) {
-        console.error('Error adding product:', error);
-        throw new Error('ไม่สามารถเพิ่มสินค้าได้');
-    }
-}
-
-export async function updateProduct(id: string, data: Partial<Product>) {
-    try {
-        await updateDoc(doc(db, 'products', id), data);
-    } catch (error) {
-        console.error('Error updating product:', error);
-        throw new Error('ไม่สามารถอัพเดทสินค้าได้');
-    }
-}
-
-export async function deleteProduct(id: string) {
-    try {
-        await deleteDoc(doc(db, 'products', id));
-    } catch (error) {
-        console.error('Error deleting product:', error);
-        throw new Error('ไม่สามารถลบสินค้าได้');
     }
 }
 
@@ -170,14 +262,31 @@ export interface Order {
     total: number;
     status: 'รอเตรียม' | 'เตรียมเสร็จ' | 'รอรับ' | 'รับแล้ว' | 'ยกเลิก';
     paymentMethod: string;
-    createdAt: Timestamp;
+    createdAt: string;
 }
 
 export async function getOrders() {
     try {
-        const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+        const { data, error } = await supabase
+            .from('orders')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return data.map((o: any) => ({
+            id: o.id,
+            userId: o.user_id,
+            userName: o.user_name,
+            userEmail: o.user_email,
+            items: o.items,
+            subtotal: o.subtotal,
+            tax: o.tax,
+            total: o.total,
+            status: o.status,
+            paymentMethod: o.payment_method,
+            createdAt: o.created_at,
+        })) as Order[];
     } catch (error) {
         console.error('Error fetching orders:', error);
         throw new Error('ไม่สามารถโหลดคำสั่งซื้อได้');
@@ -186,11 +295,24 @@ export async function getOrders() {
 
 export async function addOrder(order: Omit<Order, 'id' | 'createdAt'>) {
     try {
-        const docRef = await addDoc(collection(db, 'orders'), {
-            ...order,
-            createdAt: Timestamp.now(),
-        });
-        return docRef.id;
+        const { data, error } = await supabase
+            .from('orders')
+            .insert({
+                user_id: order.userId,
+                user_name: order.userName,
+                user_email: order.userEmail,
+                items: order.items,
+                subtotal: order.subtotal,
+                tax: order.tax,
+                total: order.total,
+                status: order.status,
+                payment_method: order.paymentMethod,
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data.id;
     } catch (error) {
         console.error('Error adding order:', error);
         throw new Error('ไม่สามารถบันทึกคำสั่งซื้อได้');
@@ -199,73 +321,112 @@ export async function addOrder(order: Omit<Order, 'id' | 'createdAt'>) {
 
 export async function updateOrderStatus(id: string, status: Order['status']) {
     try {
-        await updateDoc(doc(db, 'orders', id), { status });
+        const { error } = await supabase
+            .from('orders')
+            .update({ status })
+            .eq('id', id);
+        if (error) throw error;
     } catch (error) {
         console.error('Error updating order:', error);
         throw new Error('ไม่สามารถอัพเดทสถานะได้');
     }
 }
 
-// ===================== SETTINGS =====================
-export interface ShopSettings {
-    shopName: string;
-    shopAddress: string;
-    shopPhone: string;
-    shopEmail: string;
-    openingHours: string;
-    closedDays: string;
-    taxRate: number;
-    welcomeMessage: string;
-    notifyBooking: boolean;
-    notifyLowStock: boolean;
-    notifyPendingOrder: boolean;
+// ===================== SITE SETTINGS =====================
+export interface SiteSettings {
+    promptpayNumber: string;
+    promptpayName: string;
+    lineToken: string;
+    welcomeMessage?: string; // Mapped from shop_settings
+    notifyBooking?: boolean; // Mapped
+    notifyLowStock?: boolean; // Mapped
+    notifyPendingOrder?: boolean; // Mapped
+    shopSettings: {
+        preOrderDays?: number;
+        welcomeMessage?: string;
+        notifyBooking?: boolean;
+        notifyLowStock?: boolean;
+        notifyPendingOrder?: boolean;
+    };
 }
 
-const defaultSettings: ShopSettings = {
-    shopName: 'Salon & Sweets',
-    shopAddress: '123 ถนนสุขุมวิท กรุงเทพฯ 10110',
-    shopPhone: '02-123-4567',
-    shopEmail: 'hello@salonsweets.com',
-    openingHours: '09:00 - 18:00',
-    closedDays: 'วันจันทร์',
-    taxRate: 7,
-    welcomeMessage: 'สวัสดีค่ะ! ยินดีต้อนรับสู่ร้านของเรา 💕',
-    notifyBooking: true,
-    notifyLowStock: true,
-    notifyPendingOrder: true,
+// Alias for backward compatibility
+export type ShopSettings = SiteSettings;
+
+const defaultSiteSettings: SiteSettings = {
+    promptpayNumber: '0812345678',
+    promptpayName: 'Salon & Sweets',
+    lineToken: '',
+    shopSettings: { preOrderDays: 3 }
 };
 
-export async function getSettings(): Promise<ShopSettings> {
+export async function getSiteSettings(): Promise<SiteSettings> {
     try {
-        const docRef = doc(db, 'settings', 'shop_settings');
-        const snapshot = await getDoc(docRef);
+        const { data, error } = await supabase
+            .from('site_settings')
+            .select('*')
+            .eq('id', 'shop_settings')
+            .single();
 
-        if (!snapshot.exists()) {
-            await setDoc(docRef, defaultSettings);
-            return defaultSettings;
+        if (error || !data) {
+            return defaultSiteSettings;
         }
 
-        return snapshot.data() as ShopSettings;
+        const shopSettings = data.shop_settings || {};
+
+        return {
+            promptpayNumber: data.promptpay_number,
+            promptpayName: data.promptpay_name,
+            lineToken: data.line_token,
+            shopSettings: shopSettings,
+            // Map nested settings to top level for backward compatibility
+            welcomeMessage: shopSettings.welcomeMessage,
+            notifyBooking: shopSettings.notifyBooking ?? true,
+            notifyLowStock: shopSettings.notifyLowStock ?? true,
+            notifyPendingOrder: shopSettings.notifyPendingOrder ?? true,
+        };
     } catch (error) {
-        console.error('Error fetching settings:', error);
-        return defaultSettings;
+        console.error('Error fetching site settings:', error);
+        return defaultSiteSettings;
     }
 }
 
-export async function updateSettings(settings: Partial<ShopSettings>) {
+// Alias
+export const getSettings = getSiteSettings;
+
+export async function updateSiteSettings(settings: Partial<SiteSettings>) {
     try {
-        const docRef = doc(db, 'settings', 'shop_settings');
-        await setDoc(docRef, settings, { merge: true });
+        const updatePayload: any = { id: 'shop_settings' };
+        if (settings.promptpayNumber !== undefined) updatePayload.promptpay_number = settings.promptpayNumber;
+        if (settings.promptpayName !== undefined) updatePayload.promptpay_name = settings.promptpayName;
+        if (settings.lineToken !== undefined) updatePayload.line_token = settings.lineToken;
+
+        // Handle shopSettings update (merge with existing or provided)
+        if (settings.shopSettings) {
+            updatePayload.shop_settings = settings.shopSettings;
+        } else if (settings.welcomeMessage !== undefined || settings.notifyBooking !== undefined) {
+            // If top-level fields are updated, specific merge logic might be needed, 
+            // but for now let's assume the caller passes the full shopSettings object 
+            // or we fetch and update if critical.
+            // Simplified: only update if shopSettings is directly passed for complex objects.
+        }
+
+        const { error } = await supabase
+            .from('site_settings')
+            .upsert(updatePayload);
+
+        if (error) throw error;
     } catch (error) {
-        console.error('Error updating settings:', error);
+        console.error('Error updating site settings:', error);
         throw new Error('ไม่สามารถบันทึกการตั้งค่าได้');
     }
 }
 
 // ===================== HELPER FUNCTIONS =====================
-export function formatTimestamp(timestamp: Timestamp | undefined): string {
+export function formatTimestamp(timestamp: string | undefined): string {
     if (!timestamp) return '';
-    const date = timestamp.toDate();
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return '';
     return date.toLocaleDateString('th-TH', {
         year: 'numeric',
         month: 'short',
@@ -275,16 +436,15 @@ export function formatTimestamp(timestamp: Timestamp | undefined): string {
     });
 }
 
-export function getTimeAgo(timestamp: Timestamp | undefined): string {
+export function getTimeAgo(timestamp: string | undefined): string {
     if (!timestamp) return '';
     const now = new Date();
-    const date = timestamp.toDate();
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return '';
     const diff = now.getTime() - date.getTime();
-
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
-
     if (minutes < 1) return 'เมื่อสักครู่';
     if (minutes < 60) return `${minutes} นาทีที่แล้ว`;
     if (hours < 24) return `${hours} ชั่วโมงที่แล้ว`;
@@ -296,9 +456,9 @@ export function getTodayString(): string {
     return new Date().toISOString().split('T')[0];
 }
 
-export function isToday(timestamp: Timestamp | undefined): boolean {
+export function isToday(timestamp: string | undefined): boolean {
     if (!timestamp) return false;
-    const date = timestamp.toDate();
+    const date = new Date(timestamp);
     const today = new Date();
     return date.toDateString() === today.toDateString();
 }
@@ -311,14 +471,26 @@ export interface Review {
     rating: number;
     text: string;
     avatar?: string;
-    createdAt: Timestamp;
+    createdAt: string;
 }
 
 export async function getReviews() {
     try {
-        const q = query(collection(db, 'reviews'), orderBy('createdAt', 'desc'), limit(6));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
+        const { data, error } = await supabase
+            .from('reviews')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(6);
+        if (error) throw error;
+        return data.map((r: any) => ({
+            id: r.id,
+            userName: r.user_name,
+            userId: r.user_id,
+            rating: r.rating,
+            text: r.text,
+            avatar: r.avatar,
+            createdAt: r.created_at,
+        })) as Review[];
     } catch (error) {
         console.error('Error fetching reviews:', error);
         return [];
@@ -327,10 +499,14 @@ export async function getReviews() {
 
 export async function addReview(review: Omit<Review, 'id' | 'createdAt'>) {
     try {
-        await addDoc(collection(db, 'reviews'), {
-            ...review,
-            createdAt: Timestamp.now(),
+        const { error } = await supabase.from('reviews').insert({
+            user_name: review.userName,
+            user_id: review.userId,
+            rating: review.rating,
+            text: review.text,
+            avatar: review.avatar,
         });
+        if (error) throw error;
     } catch (error) {
         console.error('Error adding review:', error);
         throw new Error('ไม่สามารถบันทึกรีวิวได้');

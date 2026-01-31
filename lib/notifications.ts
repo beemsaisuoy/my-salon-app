@@ -1,16 +1,4 @@
-import {
-    collection,
-    addDoc,
-    getDocs,
-    query,
-    where,
-    orderBy,
-    updateDoc,
-    doc,
-    Timestamp,
-    writeBatch,
-} from 'firebase/firestore';
-import { db } from './firebase';
+import { supabase } from './supabase';
 import { getSettings, getTodayString } from './firestore';
 
 export type NotificationType =
@@ -26,14 +14,15 @@ export interface Notification {
     message: string;
     isRead: boolean;
     relatedId: string;
-    createdAt: Timestamp;
+    createdAt: string;
 }
 
 // Create a notification
 export async function createNotification(
     type: NotificationType,
     message: string,
-    relatedId: string
+    relatedId: string,
+    createdAt?: string // Optional override
 ): Promise<string | null> {
     try {
         // Check settings before creating
@@ -43,14 +32,20 @@ export async function createNotification(
         if (type === 'product_low_stock' && !settings.notifyLowStock) return null;
         if (type === 'order_pending_long' && !settings.notifyPendingOrder) return null;
 
-        const docRef = await addDoc(collection(db, 'notifications'), {
-            type,
-            message,
-            isRead: false,
-            relatedId,
-            createdAt: Timestamp.now(),
-        });
-        return docRef.id;
+        const { data, error } = await supabase
+            .from('notifications')
+            .insert({
+                type,
+                message,
+                is_read: false,
+                related_id: relatedId,
+                created_at: createdAt || undefined, // undefined lets DB use default now()
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data.id;
     } catch (error) {
         console.error('Error creating notification:', error);
         return null;
@@ -60,9 +55,21 @@ export async function createNotification(
 // Get all notifications
 export async function getNotifications(): Promise<Notification[]> {
     try {
-        const q = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+        const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return data.map((n: any) => ({
+            id: n.id,
+            type: n.type,
+            message: n.message,
+            isRead: n.is_read,
+            relatedId: n.related_id,
+            createdAt: n.created_at,
+        })) as Notification[];
     } catch (error) {
         console.error('Error fetching notifications:', error);
         return [];
@@ -72,9 +79,13 @@ export async function getNotifications(): Promise<Notification[]> {
 // Get unread count
 export async function getUnreadNotificationCount(): Promise<number> {
     try {
-        const q = query(collection(db, 'notifications'), where('isRead', '==', false));
-        const snapshot = await getDocs(q);
-        return snapshot.size;
+        const { count, error } = await supabase
+            .from('notifications')
+            .select('*', { count: 'exact', head: true })
+            .eq('is_read', false);
+
+        if (error) throw error;
+        return count || 0;
     } catch (error) {
         console.error('Error fetching unread count:', error);
         return 0;
@@ -84,7 +95,12 @@ export async function getUnreadNotificationCount(): Promise<number> {
 // Mark single notification as read
 export async function markNotificationAsRead(id: string): Promise<void> {
     try {
-        await updateDoc(doc(db, 'notifications', id), { isRead: true });
+        const { error } = await supabase
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('id', id);
+
+        if (error) throw error;
     } catch (error) {
         console.error('Error marking notification as read:', error);
     }
@@ -93,14 +109,12 @@ export async function markNotificationAsRead(id: string): Promise<void> {
 // Mark all as read
 export async function markAllNotificationsAsRead(): Promise<void> {
     try {
-        const q = query(collection(db, 'notifications'), where('isRead', '==', false));
-        const snapshot = await getDocs(q);
+        const { error } = await supabase
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('is_read', false);
 
-        const batch = writeBatch(db);
-        snapshot.docs.forEach(doc => {
-            batch.update(doc.ref, { isRead: true });
-        });
-        await batch.commit();
+        if (error) throw error;
     } catch (error) {
         console.error('Error marking all as read:', error);
     }
@@ -111,26 +125,22 @@ export async function hasNotificationToday(type: NotificationType, relatedId?: s
     try {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const startOfDay = Timestamp.fromDate(today);
+        const startOfDay = today.toISOString();
 
-        let q;
+        let query = supabase
+            .from('notifications')
+            .select('id')
+            .eq('type', type)
+            .gte('created_at', startOfDay);
+
         if (relatedId) {
-            q = query(
-                collection(db, 'notifications'),
-                where('type', '==', type),
-                where('relatedId', '==', relatedId),
-                where('createdAt', '>=', startOfDay)
-            );
-        } else {
-            q = query(
-                collection(db, 'notifications'),
-                where('type', '==', type),
-                where('createdAt', '>=', startOfDay)
-            );
+            query = query.eq('related_id', relatedId);
         }
 
-        const snapshot = await getDocs(q);
-        return !snapshot.empty;
+        const { data, error } = await query;
+
+        if (error) throw error;
+        return data && data.length > 0;
     } catch (error) {
         console.error('Error checking notification:', error);
         return false;
@@ -164,9 +174,9 @@ export async function checkLowStockNotification(productId: string, productName: 
 }
 
 // Check pending order too long
-export async function checkPendingOrderNotification(orderId: string, createdAt: Timestamp): Promise<void> {
+export async function checkPendingOrderNotification(orderId: string, createdAt: string): Promise<void> {
     const now = new Date();
-    const orderTime = createdAt.toDate();
+    const orderTime = new Date(createdAt);
     const diffHours = (now.getTime() - orderTime.getTime()) / 3600000;
 
     if (diffHours > 1) {

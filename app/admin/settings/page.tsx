@@ -1,255 +1,162 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getSettings, updateSettings, ShopSettings } from '@/lib/firestore';
+import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { useAuth } from '@/lib/auth';
+import { getSiteSettings, updateSiteSettings, SiteSettings } from '@/lib/firestore';
+import { useRouter } from 'next/navigation';
 
-export default function SettingsPage() {
-    const [settings, setSettings] = useState<ShopSettings>({
-        shopName: '',
-        shopAddress: '',
-        shopPhone: '',
-        shopEmail: '',
-        openingHours: '',
-        closedDays: '',
-        taxRate: 7,
-        welcomeMessage: '',
-        notifyBooking: true,
-        notifyLowStock: true,
-        notifyPendingOrder: true,
-    });
+// Prevent hydration issues with authentication
+export default function AdminSettingsPage() {
+    const { user, isAdmin } = useAuth();
+    const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [settings, setSettings] = useState<SiteSettings | null>(null);
+
+    // Form states
+    const [promptpayNumber, setPromptpayNumber] = useState('');
+    const [promptpayName, setPromptpayName] = useState('');
+    const [lineToken, setLineToken] = useState('');
+    const [preOrderDays, setPreOrderDays] = useState(3);
 
     useEffect(() => {
-        fetchSettings();
-    }, []);
-
-    const fetchSettings = async () => {
-        try {
-            const data = await getSettings();
-            setSettings(data);
-        } catch (error) {
-            console.error('Error fetching settings:', error);
-        } finally {
-            setLoading(false);
+        if (!user) return; // Wait for auth
+        if (!isAdmin) {
+            router.push('/');
+            return;
         }
-    };
 
-    const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), 3000);
-    };
+        async function fetchSettings() {
+            setLoading(true);
+            try {
+                const data = await getSiteSettings();
+                setSettings(data);
+                setPromptpayNumber(data.promptpayNumber);
+                setPromptpayName(data.promptpayName);
+                setLineToken(data.lineToken || '');
+                setPreOrderDays(data.shopSettings.preOrderDays || 3);
+            } catch (error) {
+                console.error('Failed to load settings', error);
+                alert('โหลดการตั้งค่าไม่สำเร็จ');
+            } finally {
+                setLoading(false);
+            }
+        }
 
-    const handleSubmit = async (e: React.FormEvent) => {
+        fetchSettings();
+    }, [user, isAdmin, router]);
+
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
-
         try {
-            await updateSettings(settings);
-            showToast('บันทึกเสร็จเลย! ✅');
+            await updateSiteSettings({
+                promptpayNumber,
+                promptpayName,
+                lineToken,
+                shopSettings: {
+                    preOrderDays,
+                },
+            });
+            alert('บันทึกการตั้งค่าเรียบร้อยแล้ว ✅');
         } catch (error) {
-            showToast('เกิดข้อผิดพลาด', 'error');
+            console.error('Error saving settings:', error);
+            alert('บันทึกไม่สำเร็จ ❌');
         } finally {
             setSaving(false);
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="spinner" />
-            </div>
-        );
-    }
+    if (loading) return <div className="p-8 text-center">กำลังโหลดข้อมูล...</div>;
 
     return (
-        <div className="space-y-6 max-w-3xl">
-            {/* Header */}
-            <div>
-                <h1 className="font-kanit text-2xl font-bold text-gray-800">⚙️ ตั้งค่าร้าน</h1>
-                <p className="text-gray-500">จัดการข้อมูลร้านและการแจ้งเตือน</p>
-            </div>
+        <div className="container mx-auto px-4 py-8 max-w-2xl">
+            <h1 className="text-3xl font-bold mb-6 text-gray-800">ตั้งค่าระบบ (Admin Settings) ⚙️</h1>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Shop Info */}
-                <div className="card p-6">
-                    <h2 className="font-kanit font-semibold text-lg text-gray-800 mb-4 flex items-center gap-2">
-                        🏪 ข้อมูลร้าน
-                    </h2>
-                    <div className="space-y-4">
-                        <div className="form-group">
-                            <label className="form-label">ชื่อร้าน</label>
-                            <input
-                                type="text"
-                                value={settings.shopName}
-                                onChange={(e) => setSettings({ ...settings, shopName: e.target.value })}
-                                className="input-field"
-                                placeholder="Salon & Sweets"
-                            />
-                        </div>
+            <form onSubmit={handleSave} className="bg-white p-6 rounded-xl shadow-md space-y-6">
 
-                        <div className="form-group">
-                            <label className="form-label">ที่อยู่</label>
-                            <input
-                                type="text"
-                                value={settings.shopAddress}
-                                onChange={(e) => setSettings({ ...settings, shopAddress: e.target.value })}
-                                className="input-field"
-                                placeholder="123 ถนนสุขุมวิท กรุงเทพฯ"
-                            />
-                        </div>
+                {/* PromptPay Settings */}
+                <div className="space-y-4">
+                    <h2 className="text-xl font-semibold text-pink-600 border-b pb-2">💳 ตั้งค่าการชำระเงิน (PromptPay)</h2>
 
-                        <div className="grid sm:grid-cols-2 gap-4">
-                            <div className="form-group">
-                                <label className="form-label">เบอร์โทร</label>
-                                <input
-                                    type="tel"
-                                    value={settings.shopPhone}
-                                    onChange={(e) => setSettings({ ...settings, shopPhone: e.target.value })}
-                                    className="input-field"
-                                    placeholder="02-123-4567"
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">อีเมล</label>
-                                <input
-                                    type="email"
-                                    value={settings.shopEmail}
-                                    onChange={(e) => setSettings({ ...settings, shopEmail: e.target.value })}
-                                    className="input-field"
-                                    placeholder="hello@salonsweets.com"
-                                />
-                            </div>
-                        </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">เบอร์พร้อมเพย์ / เลขบัตรประชาชน</label>
+                        <input
+                            type="text"
+                            value={promptpayNumber}
+                            onChange={(e) => setPromptpayNumber(e.target.value)}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-pink-300 outline-none"
+                            placeholder="0812345678"
+                            required
+                        />
+                    </div>
 
-                        <div className="grid sm:grid-cols-2 gap-4">
-                            <div className="form-group">
-                                <label className="form-label">เวลาเปิด-ปิด</label>
-                                <input
-                                    type="text"
-                                    value={settings.openingHours}
-                                    onChange={(e) => setSettings({ ...settings, openingHours: e.target.value })}
-                                    className="input-field"
-                                    placeholder="09:00 - 18:00"
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">วันปิด</label>
-                                <input
-                                    type="text"
-                                    value={settings.closedDays}
-                                    onChange={(e) => setSettings({ ...settings, closedDays: e.target.value })}
-                                    className="input-field"
-                                    placeholder="วันจันทร์"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="form-group">
-                            <label className="form-label">ข้อความต้อนรับ (แสดงหน้าแรก)</label>
-                            <textarea
-                                value={settings.welcomeMessage}
-                                onChange={(e) => setSettings({ ...settings, welcomeMessage: e.target.value })}
-                                className="input-field"
-                                rows={3}
-                                placeholder="สวัสดีค่ะ! ยินดีต้อนรับสู่ร้านของเรา 💕"
-                            />
-                        </div>
-
-                        <div className="form-group">
-                            <label className="form-label">อัตราภาษี (%)</label>
-                            <input
-                                type="number"
-                                value={settings.taxRate}
-                                onChange={(e) => setSettings({ ...settings, taxRate: Number(e.target.value) })}
-                                className="input-field max-w-32"
-                                min="0"
-                                max="100"
-                            />
-                        </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อบัญชี</label>
+                        <input
+                            type="text"
+                            value={promptpayName}
+                            onChange={(e) => setPromptpayName(e.target.value)}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-pink-300 outline-none"
+                            placeholder="ชื่อ นามสกุล"
+                            required
+                        />
                     </div>
                 </div>
 
                 {/* Notification Settings */}
-                <div className="card p-6">
-                    <h2 className="font-kanit font-semibold text-lg text-gray-800 mb-4 flex items-center gap-2">
-                        🔔 การแจ้งเตือน
-                    </h2>
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
-                            <div>
-                                <p className="font-medium text-gray-800">แจ้งเตือนจองใหม่</p>
-                                <p className="text-sm text-gray-500">รับแจ้งเตือนเมื่อมีการจองใหม่</p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setSettings({ ...settings, notifyBooking: !settings.notifyBooking })}
-                                className={`toggle ${settings.notifyBooking ? 'toggle-checked' : 'toggle-unchecked'}`}
-                            >
-                                <span className={`toggle-dot ${settings.notifyBooking ? 'toggle-dot-checked' : 'toggle-dot-unchecked'}`} />
-                            </button>
-                        </div>
+                <div className="space-y-4">
+                    <h2 className="text-xl font-semibold text-green-600 border-b pb-2">🔔 การแจ้งเตือน (Line Notify)</h2>
 
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
-                            <div>
-                                <p className="font-medium text-gray-800">แจ้งเตือนสินค้าหมด</p>
-                                <p className="text-sm text-gray-500">รับแจ้งเตือนเมื่อสินค้าหมดสต็อก</p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setSettings({ ...settings, notifyLowStock: !settings.notifyLowStock })}
-                                className={`toggle ${settings.notifyLowStock ? 'toggle-checked' : 'toggle-unchecked'}`}
-                            >
-                                <span className={`toggle-dot ${settings.notifyLowStock ? 'toggle-dot-checked' : 'toggle-dot-unchecked'}`} />
-                            </button>
-                        </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Line Notify Token (Optional)</label>
+                        <input
+                            type="text"
+                            value={lineToken}
+                            onChange={(e) => setLineToken(e.target.value)}
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-300 outline-none"
+                            placeholder="วาง Token ที่นี่เพื่อรับแจ้งเตือน"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">ปล่อยว่างไว้หากไม่ต้องการใช้งาน</p>
+                    </div>
+                </div>
 
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
-                            <div>
-                                <p className="font-medium text-gray-800">แจ้งเตือนคำสั่งซื้อรอนาน</p>
-                                <p className="text-sm text-gray-500">รับแจ้งเตือนเมื่อออเดอร์รอเกิน 1 ชั่วโมง</p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setSettings({ ...settings, notifyPendingOrder: !settings.notifyPendingOrder })}
-                                className={`toggle ${settings.notifyPendingOrder ? 'toggle-checked' : 'toggle-unchecked'}`}
-                            >
-                                <span className={`toggle-dot ${settings.notifyPendingOrder ? 'toggle-dot-checked' : 'toggle-dot-unchecked'}`} />
-                            </button>
+                {/* Shop Settings */}
+                <div className="space-y-4">
+                    <h2 className="text-xl font-semibold text-purple-600 border-b pb-2">🛍️ ตั้งค่าร้านค้า</h2>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">ระยะเวลาสั่งล่วงหน้า (สินค้า Pre-order)</label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="number"
+                                min="1"
+                                value={preOrderDays}
+                                onChange={(e) => setPreOrderDays(Number(e.target.value))}
+                                className="w-24 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-300 outline-none"
+                            />
+                            <span className="text-gray-600">วัน</span>
                         </div>
                     </div>
                 </div>
 
                 {/* Save Button */}
-                <button
-                    type="submit"
-                    disabled={saving}
-                    className={`w-full btn-primary flex items-center justify-center gap-2 ${saving ? 'opacity-60 cursor-not-allowed' : ''
-                        }`}
-                >
-                    {saving ? (
-                        <>
-                            <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            กำลังบันทึก...
-                        </>
-                    ) : (
-                        <>
-                            💾 บันทึกการตั้งค่า
-                        </>
-                    )}
-                </button>
-            </form>
-
-            {/* Toast */}
-            {toast && (
-                <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>
-                    <div className="flex items-center gap-3">
-                        <span className="text-2xl">{toast.type === 'success' ? '✅' : '❌'}</span>
-                        <p className="font-medium text-gray-800">{toast.message}</p>
-                    </div>
+                <div className="pt-4">
+                    <button
+                        type="submit"
+                        disabled={saving}
+                        className={`w-full py-3 rounded-lg text-white font-bold transition-all ${saving ? 'bg-gray-400 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-600 shadow-lg hover:shadow-xl'
+                            }`}
+                    >
+                        {saving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า 💾'}
+                    </button>
+                    <p className="text-center mt-4">
+                        <a href="/admin" className="text-gray-500 hover:text-gray-700 underline">กลับไปหน้า Admin</a>
+                    </p>
                 </div>
-            )}
+
+            </form>
         </div>
     );
 }

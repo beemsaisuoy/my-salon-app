@@ -10,6 +10,7 @@ const categories = ['ทั้งหมด', 'คุกกี้', 'เค้ก
 
 export default function ShopPage() {
     const [products, setProducts] = useState<Product[]>([]);
+    const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeCategory, setActiveCategory] = useState('ทั้งหมด');
     const [searchQuery, setSearchQuery] = useState('');
@@ -20,6 +21,7 @@ export default function ShopPage() {
             try {
                 const data = await getProducts();
                 setProducts(data);
+                setFilteredProducts(data);
             } catch (error) {
                 console.error('Error fetching products:', error);
             } finally {
@@ -29,12 +31,51 @@ export default function ShopPage() {
         fetchProducts();
     }, []);
 
-    const filteredProducts = products.filter((p) => {
-        const matchesCategory = activeCategory === 'ทั้งหมด' || p.category === activeCategory;
-        const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            p.description.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesCategory && matchesSearch;
-    });
+    // Hybrid Search Logic
+    useEffect(() => {
+        const delaySearch = setTimeout(async () => {
+            let localMatches: Product[] = [];
+
+            if (!searchQuery) {
+                localMatches = products;
+            } else {
+                localMatches = products.filter(p =>
+                    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    p.description.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+            }
+
+            // Filter by category
+            if (activeCategory !== 'ทั้งหมด') {
+                localMatches = localMatches.filter(p => p.category === activeCategory);
+            }
+
+            if (searchQuery && localMatches.length === 0 && activeCategory === 'ทั้งหมด') {
+                // Try Semantic Search if local search fails and no specific category is selected
+                try {
+                    const res = await fetch('/api/ai/search', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: searchQuery }),
+                    });
+                    const data = await res.json();
+                    if (data.products && data.products.length > 0) {
+                        setFilteredProducts(data.products);
+                    } else {
+                        setFilteredProducts([]);
+                    }
+                } catch (error) {
+                    console.error('Search error:', error);
+                    setFilteredProducts([]);
+                }
+            } else {
+                setFilteredProducts(localMatches);
+            }
+
+        }, 500); // Debounce
+
+        return () => clearTimeout(delaySearch);
+    }, [searchQuery, activeCategory, products]);
 
     return (
         <div className="pt-16 min-h-screen bg-gray-50">
@@ -56,7 +97,7 @@ export default function ShopPage() {
                         <div className="relative">
                             <input
                                 type="text"
-                                placeholder="🔍 ค้นหาขนม..."
+                                placeholder="🔍 ค้นหาขนม... (เช่น 'ขนมปังนุ่มๆ')"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="input-field pl-4 pr-10"
@@ -78,8 +119,8 @@ export default function ShopPage() {
                                         key={cat}
                                         onClick={() => setActiveCategory(cat)}
                                         className={`px-4 py-2 rounded-xl text-sm font-medium transition-all text-left ${activeCategory === cat
-                                                ? 'bg-pink-primary text-white shadow-md'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            ? 'bg-pink-primary text-white shadow-md'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                             }`}
                                     >
                                         {cat === 'ทั้งหมด' && '🏷️ '}
@@ -141,7 +182,8 @@ export default function ShopPage() {
                                             price={product.price}
                                             category={product.category}
                                             imageUrl={product.imageUrl}
-                                            inStock={product.inStock}
+                                            stock={product.stock}
+                                            preOrderDays={product.preOrderDays}
                                         />
                                     ))}
                                 </div>
