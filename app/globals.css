@@ -1,0 +1,245 @@
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Noto Sans Thai', sans-serif;
+  background: #FFF;
+  color: #1F2937;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Kanit', sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FDF2F8;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #F9A8D4 0%, #DB2777 100%);
+  border-radius: 4px;
+}
+
+/* Input styles */
+.input-field {
+  @apply w-full px-4 py-3 rounded-xl border-2 border-pink-200 focus:border-pink-primary focus:ring-2 focus:ring-pink-200 outline-none transition-all duration-300 bg-white font-noto;
+}
+
+.input-field::placeholder {
+  @apply text-gray-400;
+}
+
+/* Button styles */
+.btn-primary {
+  @apply bg-gradient-to-r from-pink-primary to-pink-dark text-white font-medium py-3 px-6 rounded-full shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 font-kanit;
+}
+
+.btn-secondary {
+  @apply bg-gradient-to-r from-gold-primary to-gold-dark text-white font-medium py-3 px-6 rounded-full shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 font-kanit;
+}
+
+.btn-outline {
+  @apply border-2 border-pink-primary text-pink-dark font-medium py-3 px-6 rounded-full hover:bg-pink-light transition-all duration-300 font-kanit;
+}
+
+.btn-ghost {
+  @apply text-dark hover:bg-gray-100 font-medium py-2 px-4 rounded-lg transition-all duration-300 font-kanit;
+}
+
+/* Card styles */
+.card {
+  @apply bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300;
+}
+
+.card-pink {
+  @apply bg-gradient-to-br from-pink-light to-white rounded-2xl shadow-lg;
+}
+
+/* Status badges */
+.badge {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+}
+
+.badge-yellow {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.badge-green {
+  @apply bg-green-100 text-green-800;
+}
+
+.badge-blue {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.badge-red {
+  @apply bg-red-100 text-red-800;
+}
+
+.badge-orange {
+  @apply bg-orange-100 text-orange-800;
+}
+
+.badge-purple {
+  @apply bg-purple-100 text-purple-800;
+}
+
+.badge-pink {
+  @apply bg-pink-100 text-pink-800;
+}
+
+/* Table styles */
+.table-container {
+  @apply overflow-x-auto bg-white rounded-2xl shadow-lg;
+}
+
+.table-container table {
+  @apply w-full;
+}
+
+.table-container th {
+  @apply px-4 py-3 text-left text-sm font-semibold text-gray-600 bg-gray-50 font-kanit;
+}
+
+.table-container td {
+  @apply px-4 py-3 text-sm border-t border-gray-100;
+}
+
+.table-container tr:hover td {
+  @apply bg-pink-50/50;
+}
+
+/* Toast styles */
+.toast {
+  @apply fixed bottom-4 right-4 bg-white shadow-2xl rounded-2xl p-4 z-50 animate-slide-up;
+}
+
+.toast-success {
+  @apply border-l-4 border-green-500;
+}
+
+.toast-error {
+  @apply border-l-4 border-red-500;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  @apply fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4;
+}
+
+.modal-content {
+  @apply bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-fade-in;
+}
+
+/* Loading spinner */
+.spinner {
+  @apply w-8 h-8 border-4 border-pink-light border-t-pink-primary rounded-full animate-spin;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #F9A8D4 0%, #DB2777 50%, #F59E0B 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Hero gradient */
+.hero-gradient {
+  background: linear-gradient(135deg, #FDF2F8 0%, #FEF3C7 50%, #FDF2F8 100%);
+}
+
+/* Sidebar active */
+.sidebar-link {
+  @apply flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-pink-50 hover:text-pink-dark transition-all duration-200 font-noto;
+}
+
+.sidebar-link.active {
+  @apply bg-gradient-to-r from-pink-primary to-pink-dark text-white shadow-lg;
+}
+
+/* Chart wrapper */
+.chart-container {
+  @apply bg-white rounded-2xl shadow-lg p-6;
+}
+
+/* Notification badge */
+.notification-badge {
+  @apply absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse-soft;
+}
+
+/* Unread notification */
+.notification-unread {
+  @apply border-l-4 border-pink-primary bg-pink-50/50;
+}
+
+/* Container */
+.container-custom {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* Form group */
+.form-group {
+  @apply space-y-2;
+}
+
+.form-label {
+  @apply block text-sm font-medium text-gray-700 font-kanit;
+}
+
+/* Select styled */
+.select-field {
+  @apply input-field appearance-none bg-no-repeat bg-right pr-10 cursor-pointer;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
+  background-size: 1.5em 1.5em;
+}
+
+/* Toggle switch */
+.toggle {
+  @apply relative inline-flex h-6 w-11 items-center rounded-full cursor-pointer transition-colors duration-200;
+}
+
+.toggle-checked {
+  @apply bg-pink-primary;
+}
+
+.toggle-unchecked {
+  @apply bg-gray-200;
+}
+
+.toggle-dot {
+  @apply inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200;
+}
+
+.toggle-dot-checked {
+  @apply translate-x-6;
+}
+
+.toggle-dot-unchecked {
+  @apply translate-x-1;
+}
