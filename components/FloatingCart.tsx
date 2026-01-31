@@ -141,7 +141,7 @@ export default function FloatingCart() {
                                     Order Placed!
                                 </h3>
                                 <p className="text-brown-500">
-                                    Thank you for your order. We'll prepare it with love!
+                                    Thank you for your order. We&apos;ll prepare it with love!
                                 </p>
                             </div>
                         ) : isCheckout ? (
@@ -207,8 +207,8 @@ export default function FloatingCart() {
                                                 type="button"
                                                 onClick={() => setCheckoutForm({ ...checkoutForm, paymentMethod: 'cash' })}
                                                 className={`p-3 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${checkoutForm.paymentMethod === 'cash'
-                                                        ? 'border-primary-400 bg-primary-50'
-                                                        : 'border-primary-100 hover:border-primary-200'
+                                                    ? 'border-primary-400 bg-primary-50'
+                                                    : 'border-primary-100 hover:border-primary-200'
                                                     }`}
                                             >
                                                 <Banknote className="w-5 h-5 text-green-600" />
@@ -218,8 +218,8 @@ export default function FloatingCart() {
                                                 type="button"
                                                 onClick={() => setCheckoutForm({ ...checkoutForm, paymentMethod: 'transfer' })}
                                                 className={`p-3 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${checkoutForm.paymentMethod === 'transfer'
-                                                        ? 'border-primary-400 bg-primary-50'
-                                                        : 'border-primary-100 hover:border-primary-200'
+                                                    ? 'border-primary-400 bg-primary-50'
+                                                    : 'border-primary-100 hover:border-primary-200'
                                                     }`}
                                             >
                                                 <CreditCard className="w-5 h-5 text-blue-600" />

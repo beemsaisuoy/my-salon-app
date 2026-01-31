@@ -77,19 +77,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return (
         <AuthContext.Provider
-      value= {{
+            value= {{
         user,
             loading,
             isAdmin,
             signInWithEmail,
             signInWithGoogle,
             logout,
-      }
+            }
 }
-    >
+        >
     { children }
     </AuthContext.Provider>
-  );
+    );
 }
 
 export function useAuth() {
